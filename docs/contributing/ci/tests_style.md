@@ -143,26 +143,32 @@ vllm_omni/                                    tests/
                                                │   ├── test_image_gen_edit.py
                                                │   ├── test_images_generations_lora.py
                                                │   └── stage_configs/
-                                               └── offline_inference/                  ✅
-                                                   ├── test_qwen2_5_omni.py
-                                                   ├── test_qwen3_omni.py
-                                                   ├── test_bagel_text2img.py
-                                                   ├── test_t2i_model.py
-                                                   ├── test_t2v_model.py
-                                                   ├── test_ovis_image.py
-                                                   ├── test_zimage_tensor_parallel.py
-                                                   ├── test_cache_dit.py
-                                                   ├── test_teacache.py
-                                                   ├── test_stable_audio_model.py
-                                                   ├── test_diffusion_cpu_offload.py
-                                                   ├── test_diffusion_layerwise_offload.py
-                                                   ├── test_diffusion_lora.py
-                                                   ├── test_sequence_parallel.py
-                                                   └── stage_configs/
-                                                       ├── qwen2_5_omni_ci.yaml
-                                                       ├── qwen3_omni_ci.yaml
-                                                       ├── bagel_*.yaml
-                                                       └── npu/, rocm/, etc.
+                                               ├── offline_inference/                  ✅
+                                               │   ├── test_qwen2_5_omni.py
+                                               │   ├── test_qwen3_omni.py
+                                               │   ├── test_bagel_text2img.py
+                                               │   ├── test_t2i_model.py
+                                               │   ├── test_t2v_model.py
+                                               │   ├── test_ovis_image.py
+                                               │   ├── test_zimage_tensor_parallel.py
+                                               │   ├── test_cache_dit.py
+                                               │   ├── test_teacache.py
+                                               │   ├── test_stable_audio_model.py
+                                               │   ├── test_diffusion_cpu_offload.py
+                                               │   ├── test_diffusion_layerwise_offload.py
+                                               │   ├── test_diffusion_lora.py
+                                               │   ├── test_sequence_parallel.py
+                                               │   └── stage_configs/
+                                               │       ├── qwen2_5_omni_ci.yaml
+                                               │       ├── qwen3_omni_ci.yaml
+                                               │       ├── bagel_*.yaml
+                                               │       └── npu/, rocm/, etc.
+                                               ├── stability/                          ✅ L5(a)
+                                               │   ├── conftest.py
+                                               │   └── weekly.json
+                                               └── reliability/                        ✅ L5(b)
+                                                   ├── conftest.py
+                                                   └── test_omni_recovery.py
 ```
 
 
