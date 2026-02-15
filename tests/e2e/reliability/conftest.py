@@ -90,16 +90,10 @@ def assert_graceful_recovery(
         result: The recovery outcome to validate.
         max_recovery_seconds: Upper bound for acceptable recovery time.
     """
-    assert result.recovered, (
-        f"System did not recover from {result.fault_type.value}: "
-        f"{result.error_message}"
-    )
+    assert result.recovered, f"System did not recover from {result.fault_type.value}: {result.error_message}"
     duration = result.recovery_duration_seconds
     assert duration is not None
-    assert duration <= max_recovery_seconds, (
-        f"Recovery from {result.fault_type.value} took {duration:.1f}s "
-        f"(budget: {max_recovery_seconds}s)"
-    )
+    assert duration <= max_recovery_seconds, f"Recovery from {result.fault_type.value} took {duration:.1f}s (budget: {max_recovery_seconds}s)"
 
 
 @pytest.fixture

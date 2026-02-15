@@ -9,7 +9,6 @@ detecting drift that indicates leaks or degradation.
 """
 
 import json
-import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -130,15 +129,9 @@ def assert_stability_thresholds(
         actual_drift = report.compute_drift(metric_name)
 
         if metric_name == "throughput_rps":
-            assert actual_drift >= -max_drift, (
-                f"Throughput dropped {abs(actual_drift):.1f}% "
-                f"(threshold: {max_drift}%)"
-            )
+            assert actual_drift >= -max_drift, f"Throughput dropped {abs(actual_drift):.1f}% (threshold: {max_drift}%)"
         else:
-            assert actual_drift <= max_drift, (
-                f"{metric_name} drifted +{actual_drift:.1f}% "
-                f"(threshold: {max_drift}%)"
-            )
+            assert actual_drift <= max_drift, f"{metric_name} drifted +{actual_drift:.1f}% (threshold: {max_drift}%)"
 
 
 def collect_process_memory_mb() -> float:
