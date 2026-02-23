@@ -236,26 +236,32 @@ vllm_omni/                                    tests/
                                                │   ├── test_image_gen_edit.py
                                                │   ├── test_images_generations_lora.py
                                                │   └── stage_configs/
-                                               └── offline_inference/                  ✅
-                                                   ├── test_qwen2_5_omni.py
-                                                   ├── test_qwen3_omni.py
-                                                   ├── test_bagel_text2img.py
-                                                   ├── test_t2i_model.py
-                                                   ├── test_t2v_model.py
-                                                   ├── test_ovis_image.py
-                                                   ├── test_zimage_tensor_parallel.py
-                                                   ├── test_cache_dit.py
-                                                   ├── test_teacache.py
-                                                   ├── test_stable_audio_model.py
-                                                   ├── test_diffusion_cpu_offload.py
-                                                   ├── test_diffusion_layerwise_offload.py
-                                                   ├── test_diffusion_lora.py
-                                                   ├── test_sequence_parallel.py
-                                                   └── stage_configs/
-                                                       ├── qwen2_5_omni_ci.yaml
-                                                       ├── qwen3_omni_ci.yaml
-                                                       ├── bagel_*.yaml
-                                                       └── npu/, rocm/, etc.
+                                               ├── offline_inference/                  ✅
+                                               │   ├── test_qwen2_5_omni.py
+                                               │   ├── test_qwen3_omni.py
+                                               │   ├── test_bagel_text2img.py
+                                               │   ├── test_t2i_model.py
+                                               │   ├── test_t2v_model.py
+                                               │   ├── test_ovis_image.py
+                                               │   ├── test_zimage_tensor_parallel.py
+                                               │   ├── test_cache_dit.py
+                                               │   ├── test_teacache.py
+                                               │   ├── test_stable_audio_model.py
+                                               │   ├── test_diffusion_cpu_offload.py
+                                               │   ├── test_diffusion_layerwise_offload.py
+                                               │   ├── test_diffusion_lora.py
+                                               │   ├── test_sequence_parallel.py
+                                               │   └── stage_configs/
+                                               │       ├── qwen2_5_omni_ci.yaml
+                                               │       ├── qwen3_omni_ci.yaml
+                                               │       ├── bagel_*.yaml
+                                               │       └── npu/, rocm/, etc.
+                                               ├── stability/                          ✅ L5(a)
+                                               │   ├── conftest.py
+                                               │   └── weekly.json
+                                               └── reliability/                        ✅ L5(b)
+                                                   ├── conftest.py
+                                                   └── test_omni_recovery.py
 ```
 
 
@@ -646,31 +652,149 @@ You can add any benchmark running parameters you need here. For all optional par
 
 L5 level testing focuses on the performance of model services under ***long-running*** and ***abnormal fault*** scenarios. It aims to uncover deep-seated issues that only manifest under sustained pressure or extreme conditions, such as memory leaks, resource contention, gradual performance degradation, and lack of fault tolerance mechanisms. This is the final, yet crucial, line of defense for ensuring service high availability and production environment robustness.
 
+L5 is split into two complementary sub-categories:
 
+| Sub-category | Goal | Typical Duration | Key Signals |
+| --- | --- | --- | --- |
+| **(a) Long-run Stability** | Detect resource leaks & performance degradation over hours of serving | 6-12+ hours | RSS/VRAM drift, P99 latency drift, throughput drop |
+| **(b) Recovery / Chaos** | Verify fault tolerance, self-healing, and graceful degradation | Minutes per scenario | Recovery time, error propagation, service health |
+
+#### Diffusion & Audio Quality Regression Signals
+
+CI cannot fully judge subjective "quality", but regression can be detected via deterministic signals on a small golden set with fixed seeds/prompts:
+
+-   ***Diffusion models***: Compare CLIP embeddings of generated images against golden references; flag when cosine similarity drops below a tolerance (e.g., 0.95).
+-   ***Audio / TTS models***: Compare wav2vec or Whisper embeddings of generated audio against golden references; additionally check basic duration and loudness within expected ranges.
+
+These checks belong to L3/L4 accuracy tests but the golden sets and tooling are reused by L5 stability runs to monitor quality drift over time.
 
 ### 4.2 Testing Content and Scope
 
 -   ***Long-term Stability (Stability) Testing***: Uses the `tests/e2e/stability/weekly.json` configuration to run the service under moderate load for an extended period (e.g., over 12 hours), monitoring whether metrics like memory/VRAM usage, response time, and throughput degrade over time, and whether the service process remains stable.
--   ***Reliability Testing***: Uses `tests/e2e/reliability/test_{model_name}.py` to actively simulate various fault and abnormal scenarios, such as: dependent service interruption, abnormal input data, network flicker, hardware resource preemption, etc., to verify the system's fault tolerance, self-healing, and graceful degradation capabilities.
+-   ***Reliability / Recovery Testing***: Uses `tests/e2e/reliability/test_{model_name}.py` to actively simulate various fault and abnormal scenarios, such as: dependent service interruption, abnormal input data, network flicker, hardware resource preemption, etc., to verify the system's fault tolerance, self-healing, and graceful degradation capabilities.
+
+!!! note
+    The `@create_new_process_for_each_test` decorator (from `tests/utils.py`) is well-suited for **(b) Recovery / Chaos** tests because each fault scenario needs process-level isolation. It is **not** designed for **(a) Long-run Stability** tests, which require a single long-lived server process monitored over hours.
 
 ### 4.3 Test Directory and Execution Files
 
 -   ***Stability Test Configuration***: `tests/e2e/stability/weekly.json`
+-   ***Stability Test Helpers***: `tests/e2e/stability/conftest.py` (provides `StabilityReport`, `MetricsSample`, drift computation, and threshold assertions)
 -   ***Reliability Test Suite***: `tests/e2e/reliability/test_{model_name}.py`
+-   ***Reliability Test Helpers***: `tests/e2e/reliability/conftest.py` (provides `FaultType`, `RecoveryResult`, health-check polling, and recovery assertions)
 
 ### 4.4 Execution Method and Example
 
 -   ***Trigger Timing***: **`Weekly`** (weekly) or **`Days before Release`** (several days before a major release). Due to long execution times, the frequency is lower.
 -   ***Execution Environment***: ***GPU*** servers, requiring a stable and exclusive testing environment.
--   ***Script Example***:
-<details>
-<summary> Test Examples</summary>
-```python
-# WIP
-```
-</details>
+-   ***Script Examples***:
 
--   -   ***Stability***: (Execution would be driven by the configuration in `weekly.json`).
+???+ example "Stability Test Configuration (weekly.json)"
+
+    ```json
+    [
+        {
+            "test_name": "stability_qwen3_omni_longrun",
+            "description": "Long-run stability test under moderate load.",
+            "server_params": {
+                "model": "Qwen/Qwen3-Omni-30B-A3B-Instruct",
+                "stage_config_name": "qwen3_omni.yaml"
+            },
+            "stability_params": {
+                "duration_seconds": 43200,
+                "warmup_seconds": 120,
+                "sampling_interval_seconds": 30,
+                "load_profile": {
+                    "request_rate": 0.5,
+                    "dataset_name": "random",
+                    "random_input_len": 2500,
+                    "random_output_len": 900
+                },
+                "thresholds": {
+                    "max_memory_drift_pct": 10.0,
+                    "max_vram_drift_pct": 10.0,
+                    "max_p99_latency_drift_pct": 25.0,
+                    "max_throughput_drop_pct": 15.0,
+                    "max_error_rate_pct": 1.0
+                }
+            }
+        }
+    ]
+    ```
+
+    **Key parameters**:
+
+    | Parameter | Description |
+    | --- | --- |
+    | `duration_seconds` | Total serving time (e.g. 43 200 = 12 hours) |
+    | `warmup_seconds` | Warm-up period excluded from drift analysis |
+    | `sampling_interval_seconds` | How often metrics are sampled |
+    | `thresholds.max_*_drift_pct` | Maximum allowed percentage drift between the first 10% and last 10% of samples |
+
+???+ example "Reliability / Recovery Test Example"
+
+    ```python
+    # SPDX-License-Identifier: Apache-2.0
+    # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+    """L5 Reliability test -- abnormal input recovery."""
+
+    import time
+    import pytest
+    from tests.e2e.reliability.conftest import (
+        FaultType, RecoveryResult,
+        assert_graceful_recovery, wait_for_healthy,
+    )
+
+    pytestmark = [pytest.mark.slow]
+
+    @pytest.mark.core_model
+    @pytest.mark.omni
+    def test_abnormal_input_recovery(client, omni_server) -> None:
+        """Inject malformed input and assert the server remains healthy."""
+        model = omni_server.model
+        injection_time = time.monotonic()
+
+        # Send deliberately malformed request
+        try:
+            client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user",
+                           "content": [{"type": "unknown_modality",
+                                        "data": "garbage"}]}],
+                stream=False,
+            )
+        except Exception:
+            pass  # Expected to fail
+
+        # Verify server is still alive
+        healthy = wait_for_healthy(
+            lambda: _simple_health_check(client, model),
+            timeout_seconds=30.0,
+        )
+        recovery_time = time.monotonic() if healthy else None
+
+        result = RecoveryResult(
+            fault_type=FaultType.ABNORMAL_INPUT,
+            injection_time=injection_time,
+            recovery_time=recovery_time,
+            recovered=healthy,
+        )
+        assert_graceful_recovery(result, max_recovery_seconds=30.0)
+
+    def _simple_health_check(client, model: str) -> bool:
+        try:
+            resp = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": "Say hello."}],
+                max_tokens=8, stream=False,
+            )
+            return resp.choices[0].message.content is not None
+        except Exception:
+            return False
+    ```
+
+-   ***Run Commands***:
+    -   ***Stability***: Driven by `weekly.json` configuration — `pytest -s -v tests/e2e/stability/`
     -   ***Reliability***: `pytest -s -v tests/e2e/reliability/test_{model_name}.py`
 
 ## Summary
