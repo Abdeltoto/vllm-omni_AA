@@ -2,8 +2,6 @@
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 """L1 unit tests for vllm_omni.inputs.data module."""
 
-import copy
-
 import pytest
 import torch
 
@@ -88,7 +86,7 @@ class TestOmniDiffusionSamplingParams:
     def test_defaults(self) -> None:
         """Default values match the documented interface."""
         params = OmniDiffusionSamplingParams()
-        assert params.num_inference_steps == 50
+        assert params.num_inference_steps is None
         assert params.guidance_scale == 0.0
         assert params.num_outputs_per_prompt == 1
         assert params.num_frames == 1

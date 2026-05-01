@@ -5,6 +5,7 @@
 import json
 import os
 import tempfile
+from multiprocessing import shared_memory as _shm
 
 import pytest
 
@@ -20,6 +21,24 @@ from vllm_omni.entrypoints.stage_utils import (
 )
 
 pytestmark = [pytest.mark.core_model, pytest.mark.cpu]
+
+
+def _force_unlink_shm(meta: dict) -> None:
+    """Best-effort cleanup if a SHM segment was created but not consumed by shm_read_bytes."""
+    name = meta.get("name")
+    if not name:
+        return
+    try:
+        shm = _shm.SharedMemory(name=name)
+    except FileNotFoundError:
+        return
+    try:
+        shm.unlink()
+    finally:
+        try:
+            shm.close()
+        except Exception:
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -62,25 +81,28 @@ class TestSharedMemory:
         """Data written to SHM can be read back identically."""
         payload = b"hello shared memory"
         meta = shm_write_bytes(payload)
-        assert "name" in meta
-        assert meta["size"] == len(payload)
-
-        recovered = shm_read_bytes(meta)
-        assert recovered == payload
+        try:
+            assert "name" in meta
+            assert meta["size"] == len(payload)
+            recovered = shm_read_bytes(meta)
+            assert recovered == payload
+        finally:
+            _force_unlink_shm(meta)
 
     def test_roundtrip_large(self) -> None:
         """Larger payloads survive the round-trip."""
         payload = os.urandom(1024 * 64)
         meta = shm_write_bytes(payload)
-        recovered = shm_read_bytes(meta)
-        assert recovered == payload
+        try:
+            recovered = shm_read_bytes(meta)
+            assert recovered == payload
+        finally:
+            _force_unlink_shm(meta)
 
-    def test_empty_payload(self) -> None:
-        """Empty bytes can be written and read."""
-        payload = b""
-        meta = shm_write_bytes(payload)
-        recovered = shm_read_bytes(meta)
-        assert recovered == payload
+    def test_empty_payload_raises(self) -> None:
+        """SharedMemory(create=True, size=0) is invalid in CPython — expect ValueError."""
+        with pytest.raises(ValueError):
+            shm_write_bytes(b"")
 
 
 # ---------------------------------------------------------------------------
@@ -155,7 +177,8 @@ class TestToDict:
         assert result == d
 
     def test_non_dict_fallback(self) -> None:
-        """Non-dict objects that can't convert return empty dict."""
+        """Scalars fall through OmegaConf conversion and dict() coercion to empty dict."""
+        # _to_dict tries _omega_to_dict then dict(x); int is not dict-convertible → {}.
         result = _to_dict(42)
         assert result == {}
 
